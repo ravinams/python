@@ -1,0 +1,66 @@
+#!/usr/bin/python3
+# COMP3311 21T3 Ass2 ... print a transcript for a given student
+
+import sys
+import psycopg2
+import re
+from helpers import getStudent
+
+# define any local helper functions here
+
+### set up some globals
+
+usage = f"Usage: {sys.argv[0]} zID"
+db = None
+
+### print the transcript for a given student
+def printTrans(db,zid):
+    # get the student's details
+    qry =  '''select Subjects.code as CourseCode,Terms.code as Term,Subjects.name as SubjectTitle,class_enrolments.mark as Mark, class_enrolments.grade as Grade,Subjects.UOC
+  from Students , class_enrolments , Courses , Subjects , term 
+  where id  = %s
+  and class_enrolments.student  = Students.id
+  and Courses.id  = class_enrolments.class 
+  and Subjects.id = Courses.subject 
+  and term.id = Courses.term'''
+    cur = db.cursor()
+    cur.execute(qry,[zid])
+    rows = cur.fetchall()
+    cur.close() 
+    # print the rows
+    for row in rows:  
+      print(f"{row['CourseCode']} {row['Term']} {row['SubjectTitle']:<32s}{row['Mark']:>3} {row['Grade']:>2s}  {row['UOC']:2d}uoc")
+
+### process command-line args
+
+argc = len(sys.argv)
+if argc < 2:
+  print(usage)
+  exit(1)
+zid = sys.argv[1]
+if zid[0] == 'z':
+  zid = zid[1:8]
+digits = re.compile("^\d{7}$")
+if not digits.match(zid):
+  print(f"Invalid student ID {zid}")
+  exit(1)
+
+# manipulate database
+
+try:
+  db = psycopg2.connect("dbname=mymyunsw")
+  stuInfo = getStudent(db,zid)
+  if not stuInfo:
+    print(f"Invalid student ID {zid}")
+    exit()
+  
+  #print(stuInfo) # debug
+  # Print transcript for Student
+  # ... add your code here ...
+  printTrans(db,zid)
+except Exception as err:
+  print("DB error: ", err)
+finally:
+  if db:
+    db.close()
+
